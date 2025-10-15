@@ -85,30 +85,30 @@ class MemberTest {
         // given
         // when
         // then
-        assertThat(member.verifyPassword("secret", passwordEncoder)).isTrue();
+        assertThat(member.verifyPassword("verysecret", passwordEncoder)).isTrue();
         assertThat(member.verifyPassword("hello", passwordEncoder)).isFalse();
     }
 
     @Test
     void changeNickname() {
         // given
-        assertThat(member.getNickname()).isEqualTo("Toby");
+        assertThat(member.getNickname()).isEqualTo("Charlie");
 
         // when
-        member.changeNickname("Charlie");
+        member.changeNickname("Charlie2");
 
         // then
-        assertThat(member.getNickname()).isEqualTo("Charlie");
+        assertThat(member.getNickname()).isEqualTo("Charlie2");
     }
     
     @Test
     void changePassword() {
         // given
         // when
-        member.changePassword("verysecret", passwordEncoder);
+        member.changePassword("verysecret2", passwordEncoder);
     
         // then
-        assertThat(member.verifyPassword("verysecret", passwordEncoder)).isTrue();
+        assertThat(member.verifyPassword("verysecret2", passwordEncoder)).isTrue();
     }
 
     @Test

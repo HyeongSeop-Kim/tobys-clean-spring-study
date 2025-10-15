@@ -176,7 +176,49 @@ IntelliJ 사용
 
 ---
 
+## 테스트
+### Record로 테스트 만들 때 의존성 주입 방법
+- `@TestConstructor` 사용
+- `test.resources.junit-platform.properties`에 `spring.test.constructor.autowire.mode=all`추가
+### MockedStatic 사용 시 주의점
+- 반드시 `try-with-resource` 구문을 사용하여 closing 해줘야한다.
 
+---
+
+## 유효성 검사
+- 도메인 모델은 도메인의 규칙에 해당하는 최소한의 검증이 필요하다.
+- Application Layer가 중요한 방어막이 되는 것이 좋다.
+## JSR-303 Bean Validation
+- 제공하지 않는 검증이 필요한 경우에는 커스텀 어노테이션을 만들거나 검증 로직을 만들어 검증해야 한다.
+
+---
+
+## SpringData 와 JPA
+- JPA를 사용할 때 다음과 같이 코드를 작성하는 것이 일반적이다.
+``` java
+  public Member activate(Long memberId) {
+      Member member = memberRepository.findById(memberId).orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다. id: " + memberId));
+
+      member.activate();
+
+      return member;
+  }
+```
+- 그러나 SpringData를 사용할 때는 다음과 같이 사용해야 한다.
+``` java
+  public Member activate(Long memberId) {
+      Member member = memberRepository.findById(memberId).orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다. id: " + memberId));
+
+      member.activate();
+
+      return memberRepository.save(member);
+  }
+```
+- JPA에는 `persist()`, `merge()`만이 존재한다. `save()`는 SpringData가 지원하는 JPA를 사용하는 것이다.
+- 따라서 SpringData를 사용하는 방법으로 사용해야 하는데, 이유는 다음과 같다.
+  - SpringData는 JPA만을 위한 기술이 아니다. Repository Abstraction을 제공하기 위해 여러 데이터 저장 기술을 추상화 한 것  
+    따라서, 다른 종류의 저장소 기술을 사용할 때와 동일한 방식을 따라서 사용하는 것을 공식문서에서 권한다.
+  - Event Publication, Auditing을 위해 필요하다.
 
 ---
 ## 추천 도서

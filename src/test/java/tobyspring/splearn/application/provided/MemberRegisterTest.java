@@ -1,108 +1,72 @@
 package tobyspring.splearn.application.provided;
 
+import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
+import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.springframework.test.util.ReflectionTestUtils;
-import tobyspring.splearn.application.MemberService;
-import tobyspring.splearn.application.required.EmailSender;
-import tobyspring.splearn.application.required.MemberRepository;
-import tobyspring.splearn.domain.Email;
-import tobyspring.splearn.domain.Member;
-import tobyspring.splearn.domain.MemberFixture;
-import tobyspring.splearn.domain.MemberStatus;
-
-import java.util.ArrayList;
-import java.util.List;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import tobyspring.splearn.SplearnTestConfiguration;
+import tobyspring.splearn.domain.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class MemberRegisterTest {
+@SpringBootTest
+@Transactional
+@Import(SplearnTestConfiguration.class)
+record MemberRegisterTest(MemberRegister memberRegister, EntityManager entityManager) {
+
     @Test
-    void registerTestStub() {
+    void register() {
         // given
-        MemberRegister register = new MemberService(
-                new MemberRepositoryStub(),
-                new EmailSenderStub(),
-                MemberFixture.createPasswordEncoder()
-        );
+        Member member = memberRegister.register(MemberFixture.createMemberRegisterRequest());
 
         // when
-        Member member = register.register(MemberFixture.createMemberRegisterRequest());
-
         // then
         assertThat(member.getId()).isNotNull();
         assertThat(member.getStatus()).isEqualTo(MemberStatus.PENDING);
     }
 
     @Test
-    void registerTestMock() {
+    void duplicateEmailFail() {
         // given
-        EmailSenderMock emailSenderMock = new EmailSenderMock();
-
-        MemberRegister register = new MemberService(
-                new MemberRepositoryStub(),
-                emailSenderMock,
-                MemberFixture.createPasswordEncoder()
-        );
+        memberRegister.register(MemberFixture.createMemberRegisterRequest());
 
         // when
-        Member member = register.register(MemberFixture.createMemberRegisterRequest());
+        // then
+        assertThatThrownBy(() -> memberRegister.register(MemberFixture.createMemberRegisterRequest()))
+                .isInstanceOf(DuplicateEmailException.class);
+    }
+    
+    @Test
+    void activate() {
+        // given
+        Member member = memberRegister.register(MemberFixture.createMemberRegisterRequest());
+        entityManager.flush();
+        entityManager.clear();
+
+        // when
+        member = memberRegister.activate(member.getId());
+        entityManager.flush();
 
         // then
-        assertThat(member.getId()).isNotNull();
-        assertThat(member.getStatus()).isEqualTo(MemberStatus.PENDING);
-
-        assertThat(emailSenderMock.getTos()).hasSize(1);
-        assertThat(emailSenderMock.getTos().getFirst()).isEqualTo(member.getEmail());
+        assertThat(member.getStatus()).isEqualTo(MemberStatus.ACTIVE);
     }
 
     @Test
-    void registerTestMockito() {
+    void memberRegisterRequestFail() {
         // given
-        EmailSender emailSenderMock = Mockito.mock(EmailSender.class);
-
-        MemberRegister register = new MemberService(
-                new MemberRepositoryStub(),
-                emailSenderMock,
-                MemberFixture.createPasswordEncoder()
-        );
-
         // when
-        Member member = register.register(MemberFixture.createMemberRegisterRequest());
-
         // then
-        assertThat(member.getId()).isNotNull();
-        assertThat(member.getStatus()).isEqualTo(MemberStatus.PENDING);
-
-        Mockito.verify(emailSenderMock).send(eq(member.getEmail()), any(), any());
+        checkValidation(new MemberRegisterRequest("toby@splearn.app", "Toby", "longsecret"));
+        checkValidation(new MemberRegisterRequest("toby@splearn.app", "Charlie______________________", "longsecret"));
+        checkValidation(new MemberRegisterRequest("tobysplearn.app", "Charlie", "longsecret"));
+        checkValidation(new MemberRegisterRequest("toby@splearn.app", "Charlie", "secret"));
     }
 
-    static class MemberRepositoryStub implements MemberRepository {
-        @Override
-        public Member save(Member member) {
-            ReflectionTestUtils.setField(member, "id", 1L);
-            return member;
-        }
-    }
-
-    static class EmailSenderStub implements EmailSender {
-        @Override
-        public void send(Email email, String subject, String body) {
-        }
-    }
-
-    static class EmailSenderMock implements EmailSender {
-        List<Email> tos = new ArrayList<>();
-
-        @Override
-        public void send(Email email, String subject, String body) {
-            tos.add(email);
-        }
-
-        public List<Email> getTos() {
-            return tos;
-        }
+    private void checkValidation(MemberRegisterRequest invalidId) {
+        assertThatThrownBy(() -> memberRegister.register(invalidId))
+                .isInstanceOf(ConstraintViolationException.class);
     }
 }
