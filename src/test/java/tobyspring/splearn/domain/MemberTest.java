@@ -2,6 +2,10 @@ package tobyspring.splearn.domain;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import tobyspring.splearn.domain.member.Member;
+import tobyspring.splearn.domain.member.MemberInfoUpdateRequest;
+import tobyspring.splearn.domain.member.MemberStatus;
+import tobyspring.splearn.domain.member.PasswordEncoder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,6 +28,7 @@ class MemberTest {
         // when
         // then
         assertThat(member.getStatus()).isEqualTo(MemberStatus.PENDING);
+        assertThat(member.getDetail().getRegisteredAt()).isNotNull();
     }
     
     @Test
@@ -39,17 +44,20 @@ class MemberTest {
     @Test
     void activateFail() {
         // given
+        assertThat(member.getDetail().getActivatedAt()).isNull();
         member.activate();
 
         // when
         // then
         assertThatThrownBy(member::activate)
                 .isInstanceOf(IllegalStateException.class);
+        assertThat(member.getDetail().getActivatedAt()).isNotNull();
     }
 
     @Test
     void deactivate() {
         // given
+        assertThat(member.getDetail().getDeactivatedAt()).isNull();
         member.activate();
 
         // when
@@ -57,6 +65,7 @@ class MemberTest {
 
         // then
         assertThat(member.getStatus()).isEqualTo(MemberStatus.DEACTIVATE);
+        assertThat(member.getDetail().getDeactivatedAt()).isNotNull();
     }
 
     @Test
@@ -89,18 +98,6 @@ class MemberTest {
         assertThat(member.verifyPassword("hello", passwordEncoder)).isFalse();
     }
 
-    @Test
-    void changeNickname() {
-        // given
-        assertThat(member.getNickname()).isEqualTo("Charlie");
-
-        // when
-        member.changeNickname("Charlie2");
-
-        // then
-        assertThat(member.getNickname()).isEqualTo("Charlie2");
-    }
-    
     @Test
     void changePassword() {
         // given
@@ -137,5 +134,31 @@ class MemberTest {
         ).isInstanceOf(IllegalArgumentException.class);
 
         Member.register(createMemberRegisterRequest(), passwordEncoder);
+    }
+
+    @Test
+    void updateInfo() {
+        // given
+        member.activate();
+
+        // when
+        var request = new MemberInfoUpdateRequest("Leo", "toby100", "자기소개");
+        member.updateInfo(request);
+
+        // then
+        assertThat(member.getNickname()).isEqualTo(request.nickname());
+        assertThat(member.getDetail().getProfile().address()).isEqualTo(request.profileAddress());
+        assertThat(member.getDetail().getIntroduction()).isEqualTo(request.introduction());
+    }
+
+    @Test
+    void updateInfoFail() {
+        // given
+        // when
+        // then
+        assertThatThrownBy(() -> {
+            var request = new MemberInfoUpdateRequest("Leo", "toby100", "자기소개");
+            member.updateInfo(request);
+        }).isInstanceOf(IllegalStateException.class);
     }
 }
